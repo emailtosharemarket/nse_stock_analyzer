@@ -78,7 +78,7 @@ if NAME:
             st.pyplot(fig)
 
             # ------------- DATA TABLE -------------
-            df_display = df[['Symbol', 'Date', '%chngACT', '%chngDEL', 'REMARKS', 'ClosePrice', '%CHANGE', '%DlyQttoTradedQty']].head(50)
+            df_display = df[['Date', '%chngACT', '%chngDEL', 'REMARKS', 'ClosePrice', '%CHANGE', '%DlyQttoTradedQty']].head(50)
             st.subheader("📋 Last 50 Days Analysis")
             st.dataframe(df_display.style.background_gradient(cmap="coolwarm", subset=['%chngACT', '%chngDEL', '%DlyQttoTradedQty']))
 
@@ -86,5 +86,6 @@ if NAME:
         st.error(f"⚠️ Error fetching data: {e}")
 else:
     st.info("Please enter a valid NSE stock symbol to begin.")
+
 
 
