@@ -9,7 +9,7 @@ from nselib import capital_market
 
 st.set_page_config(page_title="NSE Stock Analyzer", page_icon="📊", layout="wide")
 
-st.title("📊 NSE Stock Analyzer – Jackpot, ACC & BR Signals")
+st.title("📊 NSE Stock Analyzer by SUJOY ROY")
 
 st.markdown(
     """
@@ -86,4 +86,5 @@ if NAME:
         st.error(f"⚠️ Error fetching data: {e}")
 else:
     st.info("Please enter a valid NSE stock symbol to begin.")
+
 
