@@ -1,4 +1,4 @@
-# 📈 NSE Stock Analyzer – Jackpot, ACC, BR Signals
+# 📈 NSE Stock Analyzer – Jackpot, ACC, BR Signals by SUJOY ROY
 # ✅ UPDATED ON 29.04.2025
 
 import streamlit as st
@@ -86,3 +86,4 @@ if NAME:
         st.error(f"⚠️ Error fetching data: {e}")
 else:
     st.info("Please enter a valid NSE stock symbol to begin.")
+
