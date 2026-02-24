@@ -1,6 +1,6 @@
 # 📈 NSE Stock Analyzer – Jackpot, ACC, BR Signals
 # 👤 Developed by SUJOY ROY
-# ✅ Updated: 29.04.2025 (Volume-column safe version)
+# ✅ Updated: 24.02.2026 (Fully Error-Safe Version)
 
 import streamlit as st
 import pandas as pd
@@ -40,30 +40,53 @@ if NAME:
                 period="6M"
             )
 
+            if df.empty:
+                st.error("No data returned from NSE.")
+                st.stop()
+
             df = df.sort_index(ascending=False)
 
             # ---------------- COLUMN NORMALIZATION ---------------- #
             df.columns = df.columns.str.replace(" ", "", regex=True)
 
-            # -------- SAFE VOLUME COLUMN DETECTION -------- #
-            if 'TotalTradedQuantity' in df.columns:
-                volume_col = 'TotalTradedQuantity'
-            elif 'TradedQty' in df.columns:
-                volume_col = 'TradedQty'
-            elif 'TOTTRDQTY' in df.columns:
-                volume_col = 'TOTTRDQTY'
-            else:
-                raise ValueError("Volume column not found in NSE response")
+            # ---------------- SAFE VOLUME COLUMN DETECTION ---------------- #
+            volume_candidates = [
+                'TotalTradedQuantity',
+                'TradedQty',
+                'TOTTRDQTY'
+            ]
+
+            volume_col = None
+            for col in volume_candidates:
+                if col in df.columns:
+                    volume_col = col
+                    break
+
+            if volume_col is None:
+                st.error("Volume column not found in NSE response.")
+                st.stop()
 
             df.rename(columns={volume_col: 'TotalTradedQuantity'}, inplace=True)
 
-            # ---------------- REQUIRED COLUMNS ---------------- #
+            # ---------------- REQUIRED COLUMNS (SAFE VERSION) ---------------- #
             required_cols = [
-                'Symbol', 'Series', 'Date', 'ClosePrice',
-                'TotalTradedQuantity', 'No.ofTrades', '%DlyQttoTradedQty'
+                'Date',
+                'ClosePrice',
+                'TotalTradedQuantity',
+                'No.ofTrades',
+                '%DlyQttoTradedQty'
             ]
 
-            df = df[required_cols]
+            missing_cols = [col for col in required_cols if col not in df.columns]
+
+            if missing_cols:
+                st.error(f"Missing required columns from NSE: {missing_cols}")
+                st.stop()
+
+            df = df[required_cols].copy()
+
+            # Add Symbol manually (NSE sometimes omits it)
+            df['Symbol'] = NAME.upper()
 
             # ---------------- DATA CLEANING ---------------- #
             df.replace('-', np.nan, inplace=True)
@@ -79,14 +102,18 @@ if NAME:
                 df[numeric_cols]
                 .replace(",", "", regex=True)
                 .apply(pd.to_numeric, errors='coerce')
-                .round(2)
             )
+
+            df = df.dropna(subset=['ClosePrice'])
+
+            # Avoid division by zero
+            df['No.ofTrades'] = df['No.ofTrades'].replace(0, np.nan)
 
             # ---------------- DERIVED METRICS ---------------- #
             df['ACTION'] = (df['TotalTradedQuantity'] / df['No.ofTrades']).round(2)
 
-            df['avgACTION'] = df['ACTION'].mean(skipna=True).round(2)
-            df['avg%DEL'] = df['%DlyQttoTradedQty'].mean(skipna=True).round(2)
+            df['avgACTION'] = df['ACTION'].mean(skipna=True)
+            df['avg%DEL'] = df['%DlyQttoTradedQty'].mean(skipna=True)
 
             df['%chngACT'] = (
                 (df['ACTION'] - df['avgACTION']) / df['avgACTION'] * 100
@@ -116,12 +143,16 @@ if NAME:
             df['REMARKS'] = np.select(conditions, remarks, default='NA')
 
             # ---------------- PLOT SECTION ---------------- #
-            df_plot = df.dropna(subset=['ClosePrice']).copy()
+            df_plot = df.copy()
             df_plot['Date'] = pd.to_datetime(
                 df_plot['Date'],
                 format='%d-%b-%Y',
                 errors='coerce'
             )
+
+            df_plot = df_plot.dropna(subset=['Date'])
+
+            df_plot = df_plot.sort_values("Date")
 
             df_plot['30EMA'] = df_plot['ClosePrice'].ewm(
                 span=30,
@@ -145,7 +176,7 @@ if NAME:
 
             colors = {
                 'JACKPOT': 'green',
-                'ACC(G-LZ)': 'yellow',
+                'ACC(G-LZ)': 'orange',
                 'BR(G-HZ)': 'red'
             }
 
@@ -195,4 +226,3 @@ if NAME:
 
 else:
     st.info("Please enter a valid NSE stock symbol to begin.")
-
