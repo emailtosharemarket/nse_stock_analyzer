@@ -1,6 +1,11 @@
+pandas_market_calendars
 streamlit
-nselib
 pandas
 numpy
 matplotlib
-pandas_market_calendars
+nselib==2.5.1
+yfinance
+requests
+beautifulsoup4
+lxml
+html5lib
