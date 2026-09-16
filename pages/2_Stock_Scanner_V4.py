@@ -15,7 +15,7 @@ import yfinance as yf
 
 
 st.set_page_config(
-    page_title="Stock Scanner V4",
+    page_title="Stock Scanner",
     page_icon="🚀",
     layout="wide"
 )
