@@ -1,11 +1,18 @@
 # ============================================================
-# 📊 MARK MINERVINI / WEINSTEIN STAGE DETECTION
+# 📊 MINERVINI / WEINSTEIN STAGE DETECTION
 # ============================================================
 # NSE STOCK ANALYZER
-# Stage 1 / Stage 2 / Stage 3 / Stage 4
+#
+# Stage 1 - Basing
+# Stage 2 - Advancing
+# Stage 3 - Topping
+# Stage 4 - Declining
 #
 # Developed for:
 # NSE STOCK ANALYZER BY SUJOY ROY
+#
+# Robust yfinance version
+# Compatible with Streamlit Cloud
 # ============================================================
 
 import streamlit as st
@@ -16,7 +23,7 @@ import matplotlib.pyplot as plt
 
 
 # ============================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -27,7 +34,7 @@ st.set_page_config(
 
 
 # ============================================================
-# CSS
+# CUSTOM CSS
 # ============================================================
 
 st.markdown(
@@ -47,10 +54,10 @@ st.markdown(
     }
 
     .stage-box {
-        padding: 18px;
-        border-radius: 12px;
+        padding: 20px;
+        border-radius: 14px;
         text-align: center;
-        margin-bottom: 10px;
+        margin: 10px 0 20px 0;
     }
 
     .stage1 {
@@ -79,12 +86,12 @@ st.markdown(
     }
 
     .stage-number {
-        font-size: 34px;
+        font-size: 36px;
         font-weight: 800;
     }
 
     .stage-description {
-        font-size: 18px;
+        font-size: 19px;
         font-weight: 600;
     }
 
@@ -105,7 +112,8 @@ st.markdown(
 
 st.markdown(
     '<div class="sub-title">'
-    'Weekly price and 30-week moving average based stage analysis.'
+    'Weekly stock stage analysis using price, 30-week moving average '
+    'and MA slope.'
     '</div>',
     unsafe_allow_html=True
 )
@@ -120,14 +128,18 @@ with st.sidebar:
     st.header("⚙️ Analysis Settings")
 
     user_ticker = st.text_input(
-        "Enter NSE Stock",
+        "Enter NSE Stock Symbol",
         value="TITAN",
-        placeholder="Example: TITAN, VBL, SBIN"
+        placeholder="Example: TITAN"
     )
 
     period = st.selectbox(
         "Historical Period",
-        ["2y", "3y", "5y"],
+        options=[
+            "2y",
+            "3y",
+            "5y"
+        ],
         index=0
     )
 
@@ -139,23 +151,36 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.info(
+    st.markdown(
         """
-        **Examples**
+        ### Examples
 
-        TITAN  
-        SBIN  
-        VBL  
-        RELIANCE  
-        TCS  
-        INFY  
-        HDFCBANK
+        `TITAN`
+
+        `VBL`
+
+        `SBIN`
+
+        `RELIANCE`
+
+        `TCS`
+
+        `INFY`
+
+        `HDFCBANK`
         """
+    )
+
+    st.markdown("---")
+
+    st.caption(
+        "NSE symbols are automatically converted to Yahoo Finance "
+        "format using .NS"
     )
 
 
 # ============================================================
-# STAGE FUNCTION
+# STAGE CLASSIFICATION
 # ============================================================
 
 def determine_stage(row):
@@ -164,21 +189,39 @@ def determine_stage(row):
     ma = float(row["30w_MA"])
     slope = float(row["MA_slope"])
 
+    # --------------------------------------------------------
+    # Stage 1 / Stage 3
+    # --------------------------------------------------------
+
     if abs(slope) < 0.1:
 
         if abs(price - ma) < 0.05 * price:
+
             return "Stage 1: Basing"
 
         else:
+
             return "Stage 3: Topping"
+
+    # --------------------------------------------------------
+    # Stage 2
+    # --------------------------------------------------------
 
     elif slope >= 0.1 and price > ma:
 
         return "Stage 2: Advancing"
 
+    # --------------------------------------------------------
+    # Stage 4
+    # --------------------------------------------------------
+
     elif slope <= -0.1 and price < ma:
 
         return "Stage 4: Declining"
+
+    # --------------------------------------------------------
+    # Indeterminate
+    # --------------------------------------------------------
 
     else:
 
@@ -189,8 +232,14 @@ def determine_stage(row):
 # DOWNLOAD DATA
 # ============================================================
 
-@st.cache_data(ttl=1800, show_spinner=False)
-def download_stock_data(ticker, selected_period):
+@st.cache_data(
+    ttl=1800,
+    show_spinner=False
+)
+def download_stock_data(
+    ticker,
+    selected_period
+):
 
     try:
 
@@ -200,7 +249,8 @@ def download_stock_data(ticker, selected_period):
             interval="1wk",
             auto_adjust=False,
             progress=False,
-            threads=False
+            threads=False,
+            group_by="column"
         )
 
         return data
@@ -211,194 +261,255 @@ def download_stock_data(ticker, selected_period):
 
 
 # ============================================================
-# ROBUST CLOSE EXTRACTION
+# EXTRACT CLOSE SERIES
 # ============================================================
 
-def extract_close_column(stock):
+def extract_close_series(data):
 
     """
-    Safely extract Close as a 1-D pandas Series.
+    Extract Close as a guaranteed 1-D pandas Series.
 
-    Handles:
-    1. Normal yfinance DataFrame
-    2. MultiIndex DataFrame
-    3. DataFrame returned by stock["Close"]
-    4. Different yfinance versions
+    Handles different yfinance column formats.
     """
 
-    if stock is None or stock.empty:
-        return None
-
-    # --------------------------------------------------------
-    # CASE 1: MultiIndex columns
-    # --------------------------------------------------------
-
-    if isinstance(stock.columns, pd.MultiIndex):
-
-        # First try level-0 column name = Close
-        close_columns = [
-            col for col in stock.columns
-            if str(col[0]).strip().lower() == "close"
-        ]
-
-        if len(close_columns) > 0:
-
-            close_data = stock[close_columns]
-
-            # If DataFrame, take first column
-            if isinstance(close_data, pd.DataFrame):
-
-                if close_data.shape[1] > 0:
-
-                    close_data = close_data.iloc[:, 0]
-
-                else:
-
-                    return None
-
-            return pd.to_numeric(
-                close_data,
-                errors="coerce"
-            )
-
-        # ----------------------------------------------------
-        # Try level-1
-        # ----------------------------------------------------
-
-        close_columns = [
-            col for col in stock.columns
-            if len(col) > 1
-            and str(col[1]).strip().lower() == "close"
-        ]
-
-        if len(close_columns) > 0:
-
-            close_data = stock[close_columns]
-
-            if isinstance(close_data, pd.DataFrame):
-
-                close_data = close_data.iloc[:, 0]
-
-            return pd.to_numeric(
-                close_data,
-                errors="coerce"
-            )
+    if data is None:
 
         return None
 
-    # ========================================================
-    # CASE 2: Normal columns
-    # ========================================================
+    if data.empty:
 
-    if "Close" in stock.columns:
+        return None
 
-        close_data = stock["Close"]
+    try:
 
-        # Very important:
-        # Sometimes this can still be a DataFrame
-        if isinstance(close_data, pd.DataFrame):
+        # ====================================================
+        # MULTIINDEX COLUMNS
+        # ====================================================
 
-            if close_data.shape[1] == 0:
+        if isinstance(
+            data.columns,
+            pd.MultiIndex
+        ):
+
+            close_positions = []
+
+            for position, column in enumerate(
+                data.columns
+            ):
+
+                # Search every level
+                for level_value in column:
+
+                    if str(
+                        level_value
+                    ).strip().lower() == "close":
+
+                        close_positions.append(
+                            position
+                        )
+
+                        break
+
+            if not close_positions:
+
                 return None
 
-            close_data = close_data.iloc[:, 0]
+            # ------------------------------------------------
+            # Take the FIRST Close column
+            # ------------------------------------------------
 
-        return pd.to_numeric(
-            close_data,
+            close_series = data.iloc[
+                :,
+                close_positions[0]
+            ]
+
+        # ====================================================
+        # NORMAL COLUMNS
+        # ====================================================
+
+        else:
+
+            close_column = None
+
+            for column in data.columns:
+
+                if str(
+                    column
+                ).strip().lower() == "close":
+
+                    close_column = column
+
+                    break
+
+            if close_column is None:
+
+                return None
+
+            close_series = data[
+                close_column
+            ]
+
+        # ====================================================
+        # GUARANTEE SERIES
+        # ====================================================
+
+        if isinstance(
+            close_series,
+            pd.DataFrame
+        ):
+
+            if close_series.shape[1] == 0:
+
+                return None
+
+            close_series = close_series.iloc[
+                :,
+                0
+            ]
+
+        # ----------------------------------------------------
+        # Convert to Series
+        # ----------------------------------------------------
+
+        if not isinstance(
+            close_series,
+            pd.Series
+        ):
+
+            close_series = pd.Series(
+                close_series,
+                index=data.index
+            )
+
+        # ====================================================
+        # NUMERIC
+        # ====================================================
+
+        close_series = pd.to_numeric(
+            close_series,
             errors="coerce"
         )
 
-    # ========================================================
-    # CASE 3: lowercase close
-    # ========================================================
+        # ====================================================
+        # REMOVE NaN
+        # ====================================================
 
-    for column in stock.columns:
+        close_series = close_series.dropna()
 
-        if str(column).strip().lower() == "close":
+        if close_series.empty:
 
-            close_data = stock[column]
+            return None
 
-            if isinstance(close_data, pd.DataFrame):
+        return close_series
 
-                close_data = close_data.iloc[:, 0]
+    except Exception as error:
 
-            return pd.to_numeric(
-                close_data,
-                errors="coerce"
-            )
+        st.error(
+            f"❌ Error extracting Close price: {error}"
+        )
 
-    return None
+        return None
 
 
 # ============================================================
 # PREPARE DATA
 # ============================================================
 
-def prepare_data(stock):
+def prepare_data(data):
 
-    if stock is None or stock.empty:
-
-        return None
-
-    stock = stock.copy()
-
-    # --------------------------------------------------------
-    # Extract Close safely
-    # --------------------------------------------------------
-
-    close_data = extract_close_column(stock)
-
-    if close_data is None:
+    if data is None:
 
         return None
 
-    # --------------------------------------------------------
-    # Force Series
-    # --------------------------------------------------------
+    if data.empty:
 
-    if not isinstance(close_data, pd.Series):
+        return None
 
-        close_data = pd.Series(
-            close_data,
-            index=stock.index
+    # ========================================================
+    # GET CLEAN CLOSE SERIES
+    # ========================================================
+
+    close_series = extract_close_series(
+        data
+    )
+
+    if close_series is None:
+
+        st.error(
+            "❌ Close price could not be extracted."
         )
 
-    # --------------------------------------------------------
-    # Clean index
-    # --------------------------------------------------------
+        return None
 
-    close_data.index = stock.index
+    # ========================================================
+    # IMPORTANT:
+    #
+    # Create a completely NEW DataFrame.
+    #
+    # We do NOT modify yfinance's original DataFrame.
+    # ========================================================
 
-    # --------------------------------------------------------
-    # Create clean Close column
-    # --------------------------------------------------------
+    stock = pd.DataFrame(
+        {
+            "Close": close_series
+        }
+    )
 
-    stock["Close"] = close_data
+    # ========================================================
+    # FORCE CLOSE TO 1-D
+    # ========================================================
 
-    # --------------------------------------------------------
-    # Ensure numeric
-    # --------------------------------------------------------
+    if isinstance(
+        stock["Close"],
+        pd.DataFrame
+    ):
+
+        stock["Close"] = stock[
+            "Close"
+        ].iloc[:, 0]
+
+    # ========================================================
+    # NUMERIC CONVERSION
+    # ========================================================
 
     stock["Close"] = pd.to_numeric(
         stock["Close"],
         errors="coerce"
     )
 
-    # --------------------------------------------------------
-    # Remove invalid prices
-    # --------------------------------------------------------
+    # ========================================================
+    # REMOVE INVALID DATA
+    # ========================================================
 
-    stock = stock[
-        stock["Close"].notna()
-    ].copy()
+    stock = stock.dropna(
+        subset=[
+            "Close"
+        ]
+    ).copy()
 
-    if stock.empty:
+    # ========================================================
+    # CHECK DATA LENGTH
+    # ========================================================
+
+    if len(stock) < 31:
+
+        st.error(
+            f"""
+            ❌ Insufficient weekly data.
+
+            Only {len(stock)} valid weekly observations
+            were received.
+
+            At least 31 observations are required for
+            the 30-week moving average.
+            """
+        )
 
         return None
 
-    # --------------------------------------------------------
-    # 30 WEEK MOVING AVERAGE
-    # --------------------------------------------------------
+    # ========================================================
+    # 30-WEEK MOVING AVERAGE
+    # ========================================================
 
     stock["30w_MA"] = (
         stock["Close"]
@@ -409,22 +520,21 @@ def prepare_data(stock):
         .mean()
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # MA SLOPE
-    # --------------------------------------------------------
+    # ========================================================
 
     stock["MA_slope"] = (
         stock["30w_MA"]
         .diff()
     )
 
-    # --------------------------------------------------------
-    # Remove rows without indicators
-    # --------------------------------------------------------
+    # ========================================================
+    # REMOVE NaN INDICATOR ROWS
+    # ========================================================
 
     stock = stock.dropna(
         subset=[
-            "Close",
             "30w_MA",
             "MA_slope"
         ]
@@ -434,9 +544,9 @@ def prepare_data(stock):
 
         return None
 
-    # --------------------------------------------------------
-    # Stage
-    # --------------------------------------------------------
+    # ========================================================
+    # DETERMINE STAGE
+    # ========================================================
 
     stock["Stage"] = stock.apply(
         determine_stage,
@@ -453,80 +563,104 @@ def prepare_data(stock):
 stage_information = {
 
     "Stage 1: Basing": {
+
         "number": "STAGE 1",
+
         "description": "Basing / Accumulation",
+
         "class": "stage1"
     },
 
     "Stage 2: Advancing": {
+
         "number": "STAGE 2",
+
         "description": "Advancing / Uptrend",
+
         "class": "stage2"
     },
 
     "Stage 3: Topping": {
+
         "number": "STAGE 3",
+
         "description": "Topping / Distribution",
+
         "class": "stage3"
     },
 
     "Stage 4: Declining": {
+
         "number": "STAGE 4",
+
         "description": "Declining / Downtrend",
+
         "class": "stage4"
     },
 
     "Indeterminate": {
+
         "number": "N/A",
+
         "description": "Indeterminate",
+
         "class": "indeterminate"
     }
 }
 
 
 # ============================================================
-# MAIN
+# MAIN ANALYSIS
 # ============================================================
 
 if analyze_button:
 
-    ticker_input = user_ticker.strip().upper()
+    # ========================================================
+    # CLEAN INPUT
+    # ========================================================
 
-    # --------------------------------------------------------
-    # Validate
-    # --------------------------------------------------------
+    ticker_input = (
+        user_ticker
+        .strip()
+        .upper()
+    )
+
+    # ========================================================
+    # VALIDATE
+    # ========================================================
 
     if not ticker_input:
 
-        st.error("❌ Please enter an NSE stock symbol.")
+        st.error(
+            "❌ Please enter an NSE stock symbol."
+        )
 
         st.stop()
 
-    # --------------------------------------------------------
-    # Remove .NS if user entered it twice
-    # --------------------------------------------------------
+    # ========================================================
+    # NORMALIZE .NS
+    # ========================================================
 
     ticker_input = ticker_input.replace(
         ".NS.NS",
         ".NS"
     )
 
-    # --------------------------------------------------------
-    # Add .NS
-    # --------------------------------------------------------
-
-    if ticker_input.endswith(".NS"):
+    if ticker_input.endswith(
+        ".NS"
+    ):
 
         yahoo_ticker = ticker_input
 
-        display_ticker = ticker_input.replace(
-            ".NS",
-            ""
-        )
+        display_ticker = ticker_input[
+            :-3
+        ]
 
     else:
 
-        yahoo_ticker = ticker_input + ".NS"
+        yahoo_ticker = (
+            ticker_input + ".NS"
+        )
 
         display_ticker = ticker_input
 
@@ -535,7 +669,8 @@ if analyze_button:
     # ========================================================
 
     with st.spinner(
-        f"📥 Downloading weekly data for {display_ticker}..."
+        f"📥 Downloading weekly data for "
+        f"{display_ticker}..."
     ):
 
         raw_data = download_stock_data(
@@ -544,17 +679,27 @@ if analyze_button:
         )
 
     # ========================================================
-    # DATA CHECK
+    # CHECK DOWNLOAD
     # ========================================================
 
-    if raw_data is None or raw_data.empty:
+    if raw_data is None:
 
         st.error(
-            f"❌ No data found for **{display_ticker}**."
+            f"❌ Unable to download data for "
+            f"{display_ticker}."
+        )
+
+        st.stop()
+
+    if raw_data.empty:
+
+        st.error(
+            f"❌ No data found for "
+            f"{display_ticker}."
         )
 
         st.warning(
-            "Please check the NSE stock symbol."
+            "Please verify that the NSE symbol is correct."
         )
 
         st.stop()
@@ -563,24 +708,15 @@ if analyze_button:
     # PREPARE
     # ========================================================
 
-    stock = prepare_data(raw_data)
+    with st.spinner(
+        "⚙️ Calculating 30-week MA and stages..."
+    ):
 
-    if stock is None or stock.empty:
-
-        st.error(
-            "❌ Unable to prepare the stock data."
+        stock = prepare_data(
+            raw_data
         )
 
-        st.info(
-            """
-            Possible reasons:
-
-            • Invalid NSE symbol  
-            • Yahoo Finance returned incomplete data  
-            • Insufficient weekly history  
-            • Temporary Yahoo Finance issue
-            """
-        )
+    if stock is None:
 
         st.stop()
 
@@ -609,13 +745,31 @@ if analyze_button:
     latest_date = stock.index[-1]
 
     # ========================================================
-    # STAGE BOX
+    # PRICE VS MA
+    # ========================================================
+
+    price_vs_ma = (
+        (
+            latest_close
+            - latest_ma
+        )
+        / latest_ma
+    ) * 100
+
+    # ========================================================
+    # STAGE INFORMATION
     # ========================================================
 
     info = stage_information.get(
         latest_stage,
-        stage_information["Indeterminate"]
+        stage_information[
+            "Indeterminate"
+        ]
     )
+
+    # ========================================================
+    # CURRENT STAGE
+    # ========================================================
 
     st.markdown("---")
 
@@ -627,17 +781,21 @@ if analyze_button:
         f"""
         <div class="stage-box {info['class']}">
 
-        <div class="stage-number">
-        {info['number']}
-        </div>
+            <div class="stage-number">
+                {info['number']}
+            </div>
 
-        <div class="stage-description">
-        {info['description']}
-        </div>
+            <div class="stage-description">
+                {info['description']}
+            </div>
 
-        <div style="margin-top:8px;font-size:15px;">
-        Classification: <b>{latest_stage}</b>
-        </div>
+            <div style="
+                margin-top:10px;
+                font-size:16px;
+            ">
+                Classification:
+                <b>{latest_stage}</b>
+            </div>
 
         </div>
         """,
@@ -645,61 +803,52 @@ if analyze_button:
     )
 
     # ========================================================
-    # METRICS
+    # KEY METRICS
     # ========================================================
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
-    with col1:
+    with c1:
 
         st.metric(
             "Current Price",
             f"₹{latest_close:,.2f}"
         )
 
-    with col2:
+    with c2:
 
         st.metric(
             "30-Week MA",
             f"₹{latest_ma:,.2f}"
         )
 
-    with col3:
+    with c3:
 
         st.metric(
             "MA Slope",
             f"{latest_slope:.3f}"
         )
 
-    with col4:
-
-        distance = (
-            (
-                latest_close
-                - latest_ma
-            )
-            / latest_ma
-        ) * 100
+    with c4:
 
         st.metric(
             "Price vs MA",
-            f"{distance:.2f}%"
+            f"{price_vs_ma:.2f}%"
         )
 
-    with col5:
+    with c5:
 
-        if hasattr(
-            latest_date,
-            "strftime"
-        ):
+        try:
 
             date_text = latest_date.strftime(
                 "%d-%m-%Y"
             )
 
-        else:
+        except Exception:
 
-            date_text = str(latest_date)
+            date_text = str(
+                latest_date
+            )
 
         st.metric(
             "Data Through",
@@ -721,7 +870,7 @@ if analyze_button:
     )
 
     # --------------------------------------------------------
-    # Price
+    # WEEKLY CLOSE
     # --------------------------------------------------------
 
     ax.plot(
@@ -733,7 +882,7 @@ if analyze_button:
     )
 
     # --------------------------------------------------------
-    # 30 Week MA
+    # 30 WEEK MA
     # --------------------------------------------------------
 
     ax.plot(
@@ -745,9 +894,9 @@ if analyze_button:
         linewidth=1.8
     )
 
-    # --------------------------------------------------------
-    # Stage colors
-    # --------------------------------------------------------
+    # ========================================================
+    # STAGE COLORS
+    # ========================================================
 
     stage_colors = {
 
@@ -764,25 +913,26 @@ if analyze_button:
 
     stage_sizes = {
 
-        "Stage 1: Basing": 30,
+        "Stage 1: Basing": 35,
 
-        "Stage 2: Advancing": 45,
+        "Stage 2: Advancing": 50,
 
-        "Stage 3: Topping": 40,
+        "Stage 3: Topping": 45,
 
-        "Stage 4: Declining": 45,
+        "Stage 4: Declining": 50,
 
-        "Indeterminate": 20
+        "Indeterminate": 25
     }
 
-    # --------------------------------------------------------
-    # Plot stages
-    # --------------------------------------------------------
+    # ========================================================
+    # STAGE POINTS
+    # ========================================================
 
-    for stage_name, color in stage_colors.items():
+    for stage_name in stage_colors:
 
         stage_data = stock[
-            stock["Stage"] == stage_name
+            stock["Stage"]
+            == stage_name
         ]
 
         if not stage_data.empty:
@@ -791,10 +941,18 @@ if analyze_button:
                 stage_data.index,
                 stage_data["Close"],
                 label=stage_name,
-                color=color,
+                color=stage_colors[
+                    stage_name
+                ],
                 alpha=0.65,
-                s=stage_sizes[stage_name]
+                s=stage_sizes[
+                    stage_name
+                ]
             )
+
+    # ========================================================
+    # CHART FORMATTING
+    # ========================================================
 
     ax.set_title(
         f"{display_ticker} - Stage Detection",
@@ -802,9 +960,13 @@ if analyze_button:
         fontweight="bold"
     )
 
-    ax.set_xlabel("Date")
+    ax.set_xlabel(
+        "Date"
+    )
 
-    ax.set_ylabel("Price (₹)")
+    ax.set_ylabel(
+        "Price (₹)"
+    )
 
     ax.grid(
         True,
@@ -814,6 +976,8 @@ if analyze_button:
     ax.legend(
         loc="best"
     )
+
+    fig.autofmt_xdate()
 
     fig.tight_layout()
 
@@ -842,16 +1006,36 @@ if analyze_button:
     d1, d2, d3, d4, d5 = st.columns(5)
 
     distribution = [
-        (d1, "Stage 1: Basing"),
-        (d2, "Stage 2: Advancing"),
-        (d3, "Stage 3: Topping"),
-        (d4, "Stage 4: Declining"),
-        (d5, "Indeterminate")
+
+        (
+            d1,
+            "Stage 1: Basing"
+        ),
+
+        (
+            d2,
+            "Stage 2: Advancing"
+        ),
+
+        (
+            d3,
+            "Stage 3: Topping"
+        ),
+
+        (
+            d4,
+            "Stage 4: Declining"
+        ),
+
+        (
+            d5,
+            "Indeterminate"
+        )
     ]
 
-    for col, stage_name in distribution:
+    for column, stage_name in distribution:
 
-        with col:
+        with column:
 
             count = int(
                 stage_counts.get(
@@ -884,6 +1068,10 @@ if analyze_button:
         ]
     ].tail(20).copy()
 
+    # --------------------------------------------------------
+    # ROUND NUMBERS
+    # --------------------------------------------------------
+
     final_rows["Close"] = (
         final_rows["Close"]
         .round(2)
@@ -899,16 +1087,36 @@ if analyze_button:
         .round(4)
     )
 
-    final_rows.index = (
-        final_rows.index
-        .strftime("%d-%m-%Y")
-    )
+    # ========================================================
+    # FORMAT DATE
+    # ========================================================
+
+    try:
+
+        final_rows.index = (
+            final_rows.index
+            .strftime(
+                "%d-%m-%Y"
+            )
+        )
+
+    except Exception:
+
+        final_rows.index = (
+            final_rows.index
+            .astype(str)
+        )
 
     final_rows.index.name = "Date"
 
+    # ========================================================
+    # DISPLAY
+    # ========================================================
+
     st.dataframe(
         final_rows,
-        use_container_width=True
+        use_container_width=True,
+        height=500
     )
 
     # ========================================================
@@ -921,7 +1129,8 @@ if analyze_button:
         label="⬇️ Download Last 20 Weeks CSV",
         data=csv_data,
         file_name=(
-            f"{display_ticker}_Minervini_Stage.csv"
+            f"{display_ticker}"
+            "_Minervini_Stage.csv"
         ),
         mime="text/csv"
     )
@@ -936,51 +1145,59 @@ if analyze_button:
         "📖 Stage Definitions"
     )
 
-    c1, c2 = st.columns(2)
+    left, right = st.columns(2)
 
-    with c1:
+    with left:
 
         st.markdown(
             """
             ### 🔵 Stage 1 — Basing
 
-            The 30-week MA is relatively flat and
-            price is relatively close to the MA.
+            The 30-week moving average is relatively
+            flat and price is relatively close to the MA.
 
             ---
 
             ### 🟢 Stage 2 — Advancing
 
-            Price is above the 30-week MA and the
-            30-week MA slope is positive.
+            Price is above the 30-week moving average
+            and the MA slope is positive.
             """
         )
 
-    with c2:
+    with right:
 
         st.markdown(
             """
             ### 🟠 Stage 3 — Topping
 
-            The 30-week MA is relatively flat while
-            price is relatively away from the MA.
+            The 30-week moving average is relatively
+            flat while price is relatively away from it.
 
             ---
 
             ### 🔴 Stage 4 — Declining
 
-            Price is below the 30-week MA and the
-            30-week MA slope is negative.
+            Price is below the 30-week moving average
+            and the MA slope is negative.
             """
         )
 
+    # ========================================================
+    # METHODOLOGY NOTE
+    # ========================================================
+
     st.markdown("---")
 
-    st.caption(
-        "⚠️ This tool applies the quantitative rules implemented "
-        "in this program. It should not be treated as a complete "
-        "implementation of every element of Mark Minervini's "
-        "trading methodology."
+    st.warning(
+        """
+        **Methodology note:** This program uses the specific
+        quantitative rules implemented in this application:
+        weekly price, 30-week moving average and MA slope.
+
+        It is not a complete implementation of every element
+        of Mark Minervini's broader trading methodology.
+        """
     )
 
 
@@ -991,32 +1208,66 @@ if analyze_button:
 else:
 
     st.info(
-        "👈 Enter an NSE stock symbol and click "
-        "**🔍 ANALYZE STOCK**."
+        "👈 Enter an NSE stock symbol from the sidebar "
+        "and click **🔍 ANALYZE STOCK**."
     )
 
     st.markdown(
         """
-        ### 📊 How it works
+        ## 📊 How This Tool Works
 
-        **1.** Enter an NSE stock symbol.
+        **Step 1 — Enter Stock**
 
-        **2.** The application automatically adds `.NS`.
+        Enter an NSE symbol such as:
 
-        **3.** Weekly historical data is downloaded.
+        `TITAN`
 
-        **4.** A 30-week moving average is calculated.
+        `VBL`
 
-        **5.** The MA slope is calculated.
+        `SBIN`
 
-        **6.** Each weekly observation is classified.
+        `RELIANCE`
 
-        **7.** The latest stage is displayed.
+        **Step 2 — Download Weekly Data**
 
-        **8.** A stage-colored chart is generated.
+        Yahoo Finance weekly data is used.
 
-        **9.** The latest 20 observations are displayed.
+        **Step 3 — Calculate 30-Week MA**
 
-        **10.** The observations can be downloaded as CSV.
+        A 30-week simple moving average is calculated.
+
+        **Step 4 — Calculate MA Slope**
+
+        The change in the 30-week MA is calculated.
+
+        **Step 5 — Determine Stage**
+
+        The stock is classified as:
+
+        🔵 **Stage 1 — Basing**
+
+        🟢 **Stage 2 — Advancing**
+
+        🟠 **Stage 3 — Topping**
+
+        🔴 **Stage 4 — Declining**
+
+        ⚪ **Indeterminate**
+
+        **Step 6 — View Chart**
+
+        The weekly price, 30-week MA and stage points
+        are shown on the chart.
+
+        **Step 7 — Download Data**
+
+        The last 20 weekly observations can be downloaded
+        as a CSV file.
         """
+    )
+
+    st.markdown("---")
+
+    st.caption(
+        "NSE STOCK ANALYZER BY SUJOY ROY"
     )
