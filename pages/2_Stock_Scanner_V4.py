@@ -1,5 +1,5 @@
 # ============================================================
-# 🚀 STOCK SCANNER V4
+# 🚀 STOCK SCANNER
 # Technical + Fundamental + Shareholding Scanner
 # 👤 Developed by SUJOY ROY
 # ============================================================
@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🚀 Stock Scanner V4")
+st.title("🚀 Stock Scanner")
 st.caption("Technical + Fundamental + Shareholding screening model")
 
 st.info(
