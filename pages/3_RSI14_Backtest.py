@@ -44,7 +44,7 @@ with col2:
 with col3:
     END_DATE_INPUT = st.date_input(
         "END_DATE",
-        value=pd.Timestamp("2026-09-08").date()
+        value=pd.Timestamp.today().date()
     )
 
 SYMBOL = NAME + ".NS"
