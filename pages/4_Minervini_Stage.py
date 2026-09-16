@@ -49,7 +49,7 @@ symbol = st.sidebar.text_input(
 
 period = st.sidebar.selectbox(
     "Historical Period",
-    ["1y","2y", "3y", "5y", "10y"],
+    ["1y", "2y", "3y", "5y", "10y"],
     index=1
 )
 
@@ -65,6 +65,16 @@ analyze = st.sidebar.button(
 # ============================================================
 
 def get_close(data):
+    """
+    Safely extracts Close price from yfinance data.
+
+    Handles:
+    - Normal DataFrame
+    - MultiIndex DataFrame
+    - One-column DataFrame
+    - 2-D numpy array
+    - 1-D Series
+    """
 
     if data is None:
         return None
@@ -80,7 +90,6 @@ def get_close(data):
 
         if isinstance(data.columns, pd.MultiIndex):
 
-            # Look for Close at ANY level
             close_positions = []
 
             for i, col in enumerate(data.columns):
@@ -96,7 +105,6 @@ def get_close(data):
             if not close_positions:
                 return None
 
-            # Select first Close column by position
             close_data = data.iloc[
                 :,
                 close_positions[0]
@@ -108,49 +116,36 @@ def get_close(data):
 
         else:
 
+            if "Close" not in data.columns:
+                return None
+
             close_data = data["Close"]
 
         # ====================================================
         # CASE 3 — DataFrame
         # ====================================================
 
-        if isinstance(
-            close_data,
-            pd.DataFrame
-        ):
+        if isinstance(close_data, pd.DataFrame):
+
+            if close_data.shape[1] == 0:
+                return None
 
             close_data = close_data.iloc[:, 0]
 
         # ====================================================
-        # CASE 4 — Series
+        # CASE 4 — Convert to numpy
         # ====================================================
 
-        if isinstance(
+        values = np.asarray(
             close_data,
-            pd.Series
-        ):
-
-            values = close_data.to_numpy(
-                dtype="float64"
-            ).reshape(-1)
+            dtype="float64"
+        ).reshape(-1)
 
         # ====================================================
-        # CASE 5 — numpy / other array
-        # ====================================================
-
-        else:
-
-            values = np.asarray(
-                close_data,
-                dtype="float64"
-            ).reshape(-1)
-
-        # ====================================================
-        # Make sure index length matches
+        # Make sure length matches index
         # ====================================================
 
         if len(values) != len(data.index):
-
             return None
 
         # ====================================================
@@ -191,11 +186,10 @@ def prepare_data(data):
     close = get_close(data)
 
     if close is None or close.empty:
-
         return pd.DataFrame()
 
     # ========================================================
-    # Create a brand-new DataFrame
+    # Create clean DataFrame
     # ========================================================
 
     stock = pd.DataFrame(
@@ -215,7 +209,7 @@ def prepare_data(data):
     stock = stock.sort_index()
 
     # ========================================================
-    # 30 WEEK MOVING AVERAGE
+    # 30-WEEK MOVING AVERAGE
     # ========================================================
 
     stock["MA30"] = (
@@ -247,7 +241,7 @@ def prepare_data(data):
     )
 
     # ========================================================
-    # PRICE VS MA
+    # PRICE VS MA %
     # ========================================================
 
     stock["Price_vs_MA_%"] = (
@@ -274,12 +268,11 @@ def classify_stage(row):
     slope = row["MA_Slope"]
 
     if pd.isna(ma) or pd.isna(slope):
-
         return "Indeterminate"
 
-    # --------------------------------------------------------
-    # Stage 1
-    # --------------------------------------------------------
+    # ========================================================
+    # STAGE 1 — BASING
+    # ========================================================
 
     if (
         abs(slope) < 0.1
@@ -288,9 +281,9 @@ def classify_stage(row):
 
         return "Stage 1: Basing"
 
-    # --------------------------------------------------------
-    # Stage 2
-    # --------------------------------------------------------
+    # ========================================================
+    # STAGE 2 — ADVANCING
+    # ========================================================
 
     if (
         slope >= 0.1
@@ -299,9 +292,9 @@ def classify_stage(row):
 
         return "Stage 2: Advancing"
 
-    # --------------------------------------------------------
-    # Stage 4
-    # --------------------------------------------------------
+    # ========================================================
+    # STAGE 4 — DECLINING
+    # ========================================================
 
     if (
         slope <= -0.1
@@ -310,17 +303,17 @@ def classify_stage(row):
 
         return "Stage 4: Declining"
 
-    # --------------------------------------------------------
-    # Stage 3
-    # --------------------------------------------------------
+    # ========================================================
+    # STAGE 3 — TOPPING
+    # ========================================================
 
     if abs(slope) < 0.1:
 
         return "Stage 3: Topping"
 
-    # --------------------------------------------------------
-    # Indeterminate
-    # --------------------------------------------------------
+    # ========================================================
+    # INDETERMINATE
+    # ========================================================
 
     return "Indeterminate"
 
@@ -394,10 +387,14 @@ def show_stage(stage):
 
 
 # ============================================================
-# MAIN
+# MAIN ANALYSIS
 # ============================================================
 
 if analyze:
+
+    # ========================================================
+    # CHECK SYMBOL
+    # ========================================================
 
     if not symbol:
 
@@ -410,7 +407,7 @@ if analyze:
     ticker = symbol + ".NS"
 
     # ========================================================
-    # DOWNLOAD
+    # DOWNLOAD WEEKLY DATA
     # ========================================================
 
     st.info(
@@ -446,14 +443,14 @@ if analyze:
             f"""
             ❌ No data found for **{symbol}**.
 
-            Check whether the NSE symbol is correct.
+            Please check the NSE stock symbol.
             """
         )
 
         st.stop()
 
     # ========================================================
-    # PREPARE
+    # PREPARE DATA
     # ========================================================
 
     stock = prepare_data(data)
@@ -467,7 +464,7 @@ if analyze:
         st.stop()
 
     # ========================================================
-    # STAGE
+    # CLASSIFY STAGE
     # ========================================================
 
     stock["Stage"] = stock.apply(
@@ -495,10 +492,12 @@ if analyze:
         st.stop()
 
     # ========================================================
-    # LATEST
+    # LATEST DATA
     # ========================================================
 
     latest = valid.iloc[-1]
+
+    latest_date = valid.index[-1]
 
     close = float(
         latest["Close"]
@@ -535,7 +534,16 @@ if analyze:
     show_stage(stage)
 
     # ========================================================
-    # METRICS
+    # LATEST DATE
+    # ========================================================
+
+    st.caption(
+        f"📅 Latest weekly data: "
+        f"**{latest_date.strftime('%d-%m-%Y')}**"
+    )
+
+    # ========================================================
+    # CURRENT TECHNICAL DATA
     # ========================================================
 
     st.markdown(
@@ -593,23 +601,29 @@ if analyze:
         figsize=(14, 7)
     )
 
+    # Chronological order for chart
+    chart_data = valid.sort_index(
+        ascending=True
+    )
+
     ax.plot(
-        valid.index,
-        valid["Close"],
+        chart_data.index,
+        chart_data["Close"],
         label="Weekly Close",
         linewidth=2
     )
 
     ax.plot(
-        valid.index,
-        valid["MA30"],
+        chart_data.index,
+        chart_data["MA30"],
         label="30-Week MA",
         linewidth=2
     )
 
+    # Latest price marker
     ax.scatter(
-        valid.index[-1],
-        valid["Close"].iloc[-1],
+        chart_data.index[-1],
+        chart_data["Close"].iloc[-1],
         s=80,
         zorder=5
     )
@@ -709,96 +723,93 @@ if analyze:
     plt.close(fig2)
 
     # ========================================================
-    # RECENT DATA
-    # ========================================================
-
-    # ========================================================
-# RECENT DATA — LATEST FIRST
-# ========================================================
-
-st.markdown("---")
-
-st.subheader(
-    "📅 Weekly Data — Latest First"
-)
-
-# --------------------------------------------------------
-# Take latest 20 observations
-# --------------------------------------------------------
-
-recent = valid.tail(20).copy()
-
-# --------------------------------------------------------
-# Sort latest date first
-# --------------------------------------------------------
-
-recent = recent.sort_index(
-    ascending=False
-)
-
-# --------------------------------------------------------
-# Select columns
-# --------------------------------------------------------
-
-recent_display = recent[
-    [
-        "Close",
-        "MA30",
-        "MA_Slope",
-        "MA_Slope_%",
-        "Price_vs_MA_%",
-        "Stage"
-    ]
-].copy()
-
-# --------------------------------------------------------
-# Add Date column
-# --------------------------------------------------------
-
-recent_display.insert(
-    0,
-    "Date",
-    recent_display.index.strftime(
-        "%d-%m-%Y"
-    )
-)
-
-# --------------------------------------------------------
-# Reset index
-# --------------------------------------------------------
-
-recent_display = (
-    recent_display
-    .reset_index(drop=True)
-)
-
-# --------------------------------------------------------
-# Display
-# --------------------------------------------------------
-
-st.dataframe(
-    recent_display.style.format(
-        {
-            "Close": "₹{:.2f}",
-            "MA30": "₹{:.2f}",
-            "MA_Slope": "{:.3f}",
-            "MA_Slope_%": "{:.2f}%",
-            "Price_vs_MA_%": "{:.2f}%"
-        }
-    ),
-    use_container_width=True,
-    hide_index=True
-)
-
-    # ========================================================
-    # CSV DOWNLOAD
+    # RECENT DATA — LATEST FIRST
     # ========================================================
 
     st.markdown("---")
 
+    st.subheader(
+        "📅 Weekly Data — Latest First"
+    )
+
+    # --------------------------------------------------------
+    # Latest 20 weeks
+    # --------------------------------------------------------
+
+    recent = valid.tail(20).copy()
+
+    # --------------------------------------------------------
+    # NEWEST DATE FIRST
+    # --------------------------------------------------------
+
+    recent = recent.sort_index(
+        ascending=False
+    )
+
+    # --------------------------------------------------------
+    # Select columns
+    # --------------------------------------------------------
+
+    recent_display = recent[
+        [
+            "Close",
+            "MA30",
+            "MA_Slope",
+            "MA_Slope_%",
+            "Price_vs_MA_%",
+            "Stage"
+        ]
+    ].copy()
+
+    # --------------------------------------------------------
+    # Add Date
+    # --------------------------------------------------------
+
+    recent_display.insert(
+        0,
+        "Date",
+        recent_display.index.strftime(
+            "%d-%m-%Y"
+        )
+    )
+
+    recent_display = (
+        recent_display
+        .reset_index(drop=True)
+    )
+
+    # ========================================================
+    # FORMAT TABLE
+    # ========================================================
+
+    st.dataframe(
+        recent_display.style.format(
+            {
+                "Close": "₹{:.2f}",
+                "MA30": "₹{:.2f}",
+                "MA_Slope": "{:.3f}",
+                "MA_Slope_%": "{:.2f}%",
+                "Price_vs_MA_%": "{:.2f}%"
+            }
+        ),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # ========================================================
+    # DOWNLOAD CSV — LATEST FIRST
+    # ========================================================
+
+    st.markdown("---")
+
+    st.subheader(
+        "💾 Download Analysis"
+    )
+
+    # Latest date first
     csv_df = valid.sort_index(
-    ascending=False
-     ).copy()
+        ascending=False
+    ).copy()
 
     csv_df.index.name = "Date"
 
@@ -806,11 +817,13 @@ st.dataframe(
 
     csv = csv_df.to_csv(
         index=False
-    ).encode("utf-8")
+    ).encode(
+        "utf-8"
+    )
 
     st.download_button(
-        "⬇️ Download Full Stage Analysis CSV",
-        csv,
+        label="⬇️ Download Full Stage Analysis CSV",
+        data=csv,
         file_name=f"{symbol}_Minervini_Stage.csv",
         mime="text/csv",
         use_container_width=True
@@ -845,6 +858,7 @@ else:
                 "Stage 4",
                 "Indeterminate"
             ],
+
             "Description": [
                 "Basing / Accumulation",
                 "Advancing / Uptrend",
@@ -852,6 +866,7 @@ else:
                 "Declining / Downtrend",
                 "No clear stage"
             ],
+
             "Rule": [
                 "Flat MA + price near MA",
                 "Rising MA + price above MA",
@@ -875,7 +890,7 @@ else:
         ⚠️ Stage classification is based on the mathematical
         rules implemented in this scanner. It is a technical
         analysis classification, not a prediction of future prices.
-        """
+        """ 
     )
 
 
@@ -886,5 +901,6 @@ else:
 st.markdown("---")
 
 st.caption(
-    "📊 NSE STOCK ANALYZER BY SUJOY ROY | Minervini / Weinstein Stage Analyzer"
+    "📊 NSE STOCK ANALYZER BY SUJOY ROY | "
+    "Minervini / Weinstein Stage Analyzer"
 )
