@@ -556,7 +556,7 @@ if scan_clicked:
 
         st.dataframe(
             output.style
-            .applymap(style_action, subset=["ACTION"])
+            .map(style_action, subset=["ACTION"])
             .background_gradient(
                 cmap="YlGn",
                 subset=["PY_SCORE"]
