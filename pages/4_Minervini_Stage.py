@@ -49,7 +49,7 @@ symbol = st.sidebar.text_input(
 
 period = st.sidebar.selectbox(
     "Historical Period",
-    ["2y", "3y", "5y", "10y"],
+    ["1y","2y", "3y", "5y", "10y"],
     index=1
 )
 
@@ -712,51 +712,83 @@ if analyze:
     # RECENT DATA
     # ========================================================
 
-    st.markdown("---")
+    # ========================================================
+# RECENT DATA — LATEST FIRST
+# ========================================================
 
-    st.subheader(
-        "📅 Last 20 Weekly Observations"
+st.markdown("---")
+
+st.subheader(
+    "📅 Weekly Data — Latest First"
+)
+
+# --------------------------------------------------------
+# Take latest 20 observations
+# --------------------------------------------------------
+
+recent = valid.tail(20).copy()
+
+# --------------------------------------------------------
+# Sort latest date first
+# --------------------------------------------------------
+
+recent = recent.sort_index(
+    ascending=False
+)
+
+# --------------------------------------------------------
+# Select columns
+# --------------------------------------------------------
+
+recent_display = recent[
+    [
+        "Close",
+        "MA30",
+        "MA_Slope",
+        "MA_Slope_%",
+        "Price_vs_MA_%",
+        "Stage"
+    ]
+].copy()
+
+# --------------------------------------------------------
+# Add Date column
+# --------------------------------------------------------
+
+recent_display.insert(
+    0,
+    "Date",
+    recent_display.index.strftime(
+        "%d-%m-%Y"
     )
+)
 
-    recent = valid.tail(20).copy()
+# --------------------------------------------------------
+# Reset index
+# --------------------------------------------------------
 
-    recent_display = recent[
-        [
-            "Close",
-            "MA30",
-            "MA_Slope",
-            "MA_Slope_%",
-            "Price_vs_MA_%",
-            "Stage"
-        ]
-    ].copy()
+recent_display = (
+    recent_display
+    .reset_index(drop=True)
+)
 
-    recent_display.insert(
-        0,
-        "Date",
-        recent_display.index.strftime(
-            "%d-%m-%Y"
-        )
-    )
+# --------------------------------------------------------
+# Display
+# --------------------------------------------------------
 
-    recent_display = (
-        recent_display
-        .reset_index(drop=True)
-    )
-
-    st.dataframe(
-        recent_display.style.format(
-            {
-                "Close": "₹{:.2f}",
-                "MA30": "₹{:.2f}",
-                "MA_Slope": "{:.3f}",
-                "MA_Slope_%": "{:.2f}%",
-                "Price_vs_MA_%": "{:.2f}%"
-            }
-        ),
-        use_container_width=True,
-        hide_index=True
-    )
+st.dataframe(
+    recent_display.style.format(
+        {
+            "Close": "₹{:.2f}",
+            "MA30": "₹{:.2f}",
+            "MA_Slope": "{:.3f}",
+            "MA_Slope_%": "{:.2f}%",
+            "Price_vs_MA_%": "{:.2f}%"
+        }
+    ),
+    use_container_width=True,
+    hide_index=True
+)
 
     # ========================================================
     # CSV DOWNLOAD
@@ -764,7 +796,9 @@ if analyze:
 
     st.markdown("---")
 
-    csv_df = valid.copy()
+    csv_df = valid.sort_index(
+    ascending=False
+     ).copy()
 
     csv_df.index.name = "Date"
 
