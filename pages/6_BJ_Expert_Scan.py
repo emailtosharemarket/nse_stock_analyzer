@@ -50,14 +50,14 @@ st.link_button(
     use_container_width=True
 )
 
-st.markdown("---")
+#st.markdown("---")
 
 
 # ============================================================
 # INFORMATION
 # ============================================================
 
-st.markdown("---")
+#st.markdown("---")
 
 st.info(
     """
