@@ -52,17 +52,6 @@ st.link_button(
 
 st.markdown("---")
 
-# ============================================================
-# EMBED CHARTINK
-# ============================================================
-
-st.subheader("📈 BJ Expert Scan")
-
-st.components.v1.iframe(
-    src=chartink_url,
-    height=900,
-    scrolling=True
-)
 
 # ============================================================
 # INFORMATION
