@@ -347,19 +347,9 @@ else:
     st.info("Please enter a valid NSE stock symbol to begin.")
 import streamlit as st
 import pandas as pd
-
-# Add a new tab
-tab1, tab2 = st.tabs([
-    "STOCK ANALYZER",
-    "GRADATION"
 ])
 
-with tab2:
-    st.header("📋 GRADATION")
 
-    uploaded_file = st.file_uploader(
-        "Upload Gradation Excel File",
-        type=["xlsx", "xls"]
     )
 
     if uploaded_file:
