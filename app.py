@@ -19,6 +19,53 @@ st.set_page_config(
     layout="wide"
 )
 
+# ============================================================
+# HORIZONTAL NAVIGATION MENU
+# ============================================================
+
+st.markdown("""
+<style>
+.nav-menu {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    margin-bottom: 22px;
+    background: #10243A;
+    border-radius: 12px;
+}
+
+.nav-menu a {
+    display: inline-block;
+    padding: 11px 15px;
+    background: #1E4976;
+    color: white !important;
+    text-decoration: none !important;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: 0.3s;
+}
+
+.nav-menu a:hover {
+    background: #00A6A6;
+    transform: translateY(-2px);
+}
+</style>
+
+<div class="nav-menu">
+    <a href="/" target="_self">🏠 APP</a>
+    <a href="/Stock_Scanner" target="_self">📊 Stock Scanner</a>
+    <a href="/RSI14_Backtest" target="_self">📈 RSI14 Backtest</a>
+    <a href="/Minervini_Stage" target="_self">🚀 Minervini Stage</a>
+    <a href="/Resistance_Became_Support" target="_self">🎯 Resistance Became Support</a>
+    <a href="/BJ_Expert_Scan" target="_self">💎 BJ Expert Scan</a>
+</div>
+""", unsafe_allow_html=True)
+
 st.title("📊 NSE Stock Analyzer by SUJOY ROY")
 
 st.markdown("""
