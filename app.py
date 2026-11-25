@@ -348,24 +348,24 @@ else:
 import streamlit as st
 import pandas as pd
 
-# Add a new tab
-tab1, tab2 = st.tabs([
-    "STOCK ANALYZER",
-    "GRADATION"
-])
+# # Add a new tab
+# tab1, tab2 = st.tabs([
+#     "STOCK ANALYZER",
+#     "GRADATION"
+# ])
 
-with tab2:
-    st.header("📋 GRADATION")
+# with tab2:
+#     st.header("📋 GRADATION")
 
-    uploaded_file = st.file_uploader(
-        "Upload Gradation Excel File",
-        type=["xlsx", "xls"]
-    )
+#     uploaded_file = st.file_uploader(
+#         "Upload Gradation Excel File",
+#         type=["xlsx", "xls"]
+#     )
 
-    if uploaded_file:
-        df = pd.read_excel(uploaded_file)
+#     if uploaded_file:
+#         df = pd.read_excel(uploaded_file)
 
-        st.subheader("Gradation List")
+#         st.subheader("Gradation List")
         st.dataframe(
             df,
             use_container_width=True
