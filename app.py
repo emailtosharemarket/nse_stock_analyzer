@@ -81,7 +81,8 @@ st.markdown("""
 """)
 
 NAME = st.text_input(
-    "Enter Stock Symbol (e.g. TCS, INFY, RELIANCE):"
+    "Enter Stock Symbol:",
+    placeholder="e.g. TCS, INFY, RELIANCE"
 ).strip().upper()
 
 
