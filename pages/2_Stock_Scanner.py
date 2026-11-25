@@ -63,7 +63,7 @@ with st.expander("📖 Scanner Methodology", expanded=False):
 """)
 
 stock_text = st.text_area(
-    "Enter NSE symbols (comma, space, or newline separated)",
+    "**Enter NSE symbols (comma, space, or newline separated)**",
     placeholder ="SBIN, BERGEPAINT, AARTIND, MRF, TI ",
     height=100,
     help="Example: TCS, INFY, RELIANCE"
