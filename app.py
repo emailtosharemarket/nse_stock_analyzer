@@ -63,6 +63,7 @@ st.markdown("""
     <a href="/Minervini_Stage" target="_self">🚀 Minervini Stage</a>
     <a href="/Resistance_Became_Support" target="_self">🎯 Resistance Became Support</a>
     <a href="/BJ_Expert_Scan" target="_self">💎 BJ Expert Scan</a>
+    <a href="/Multibagger_Early_Detector" target="_self">🚀 Multibagger Detector</a>
 </div>
 """, unsafe_allow_html=True)
 
