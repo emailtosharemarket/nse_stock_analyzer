@@ -366,7 +366,7 @@ import pandas as pd
 #         df = pd.read_excel(uploaded_file)
 
 #         st.subheader("Gradation List")
-        st.dataframe(
-            df,
-            use_container_width=True
-        )
+        # st.dataframe(
+        #     df,
+        #     use_container_width=True
+        # )
