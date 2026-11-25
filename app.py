@@ -57,7 +57,7 @@ st.markdown("""
 </style>
 
 <div class="nav-menu">
-    <a href="/Analyzer" target="_self">🏠 APP</a>
+    <a href="/" target="_self">🏠 Analyzer</a>
     <a href="/Stock_Scanner" target="_self">📊 Stock Scanner</a>
     <a href="/RSI14_Backtest" target="_self">📈 RSI14 Backtest</a>
     <a href="/Minervini_Stage" target="_self">🚀 Minervini Stage</a>
